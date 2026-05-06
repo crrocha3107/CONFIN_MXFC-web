@@ -7,6 +7,7 @@
 	</PropertyGroup>
 	<ItemGroup>
 	  <None Remove="Components\cdg3x4vd.gfb~" />
+	  <None Remove="Components\Pages\Login.razor~RFbe91406.TMP" />
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\CONFIN_MXFC-vb\CONFIN_MXFC.vbproj" />

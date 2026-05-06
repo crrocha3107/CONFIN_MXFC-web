@@ -1,58 +1,47 @@
-﻿@*
-======================================
-Nome do arquivo: Login.razor
-VERSÃO: 14.6.0 (Correção RZ1017 e RZ9980)
-MXFC Engenharia Ltda.
-=======================================
-*@
-@page "/login"
+﻿@page "/login"
+@layout Layout.BlankLayout
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Components.Forms
-@using System.Net.Http.Json
 @attribute [AllowAnonymous]
 
 @using static Microsoft.AspNetCore.Components.Web.RenderMode
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Net.Http.Json
 @inject HttpClient Http
 @inject NavigationManager NavManager
 @inject global::CONFIN_MXFC.Web.Security.CustomAuthStateProvider AuthProvider
 
 <div class="container d-flex align-items-center justify-content-center vh-100">
-    <div class="card p-4 shadow-sm border-0" style="width: 400px; border-radius: 12px;">
-        <div class="text-center mb-4">
-            <h3 style="color: #104E6E; font-weight: bold;">CONFIN_MXFC</h3>
-            <p class="text-muted small fw-bold">IDENTIFICAÇÃO DE ACESSO</p>
-        </div>
+    <div class="card p-4 shadow-sm border-0" style="width: 400px;">
+        <h3 class="text-center text-primary fw-bold mb-4">ENTRAR</h3>
 
         <EditForm Model="@loginModel" OnValidSubmit="ExecutarLogin">
             <div class="mb-3">
-                <label class="form-label fw-bold small text-muted">USUÁRIO</label>
-                <InputText @bind-Value="loginModel.Usuario" class="form-control form-control-lg" placeholder="Digite seu login" />
+                <label class="form-label fw-bold">Usuário</label>
+                <InputText @bind-Value="loginModel.Usuario" class="form-control" />
             </div>
             <div class="mb-3">
-                <label class="form-label fw-bold small text-muted">SENHA</label>
-                <InputText @bind-Value="loginModel.Senha" type="password" class="form-control form-control-lg" placeholder="••••••••" />
+                <label class="form-label fw-bold">Senha</label>
+                <InputText @bind-Value="loginModel.Senha" type="password" class="form-control" />
             </div>
-            <button type="submit" class="btn btn-primary w-100 fw-bold py-2 mt-3" disabled="@isProcessing" style="background-color: #104E6E;">
+            <button type="submit" class="btn btn-primary w-100 fw-bold" disabled="@isProcessing">
                 @if (isProcessing)
                 {
                     <span class="spinner-border spinner-border-sm me-2"></span>
                 }
-                ENTRAR
+                ACESSAR
             </button>
         </EditForm>
 
         @if (!string.IsNullOrEmpty(errorMessage))
         {
-            <div class="alert alert-danger mt-3 py-2 text-center small border-0 shadow-sm">
-                <i class="oi oi-warning me-1"></i> @errorMessage
-            </div>
+            <div class="alert alert-danger mt-3 py-2 text-center small">@errorMessage</div>
         }
     </div>
 </div>
 
 @code {
-    private LoginRequest loginModel = new();
+    private LoginRequest loginModel = new LoginRequest();
     private bool isProcessing = false;
     private string errorMessage = "";
 
@@ -62,33 +51,27 @@ MXFC Engenharia Ltda.
         errorMessage = "";
         try
         {
-            // 1. Validação no Backend (Porta 5000)
-            var response = await Http.PostAsJsonAsync("http://localhost:5000/api/auth/login", loginModel);
+            // O caminho base "http://localhost:5000" é injetado pelo Program.cs
+            var response = await Http.PostAsJsonAsync("api/auth/login", loginModel);
             
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
                 if (result != null && !string.IsNullOrEmpty(result.Token))
                 {
-                    // 2. Persistência de Cookie no Frontend (Porta 7297)
-                    var localResponse = await Http.PostAsJsonAsync("/auth/local-login", result.Token);
-                    
-                    if (localResponse.IsSuccessStatusCode)
-                    {
-                        await AuthProvider.MarcarUsuarioComoAutenticado(result.Token);
-                        NavManager.NavigateTo("/", forceLoad: true);
-                    }
+                    await Http.PostAsJsonAsync("/auth/local-login", result.Token);
+                    await AuthProvider.MarcarUsuarioComoAutenticado(result.Token);
+                    NavManager.NavigateTo("/", forceLoad: true);
                 }
             }
             else
             {
-                errorMessage = "Credenciais inválidas. Tente novamente.";
+                errorMessage = "Credenciais inválidas.";
             }
         }
-        catch (Exception ex)
+        catch
         {
-            errorMessage = "Falha de comunicação com o servidor.";
-            Console.WriteLine(ex.Message);
+            errorMessage = "Erro de conexão com a API. Verifique o servidor.";
         }
         finally
         {
@@ -96,15 +79,14 @@ MXFC Engenharia Ltda.
         }
     }
 
-    // Classes de modelo isoladas no final do bloco @code
     public class LoginRequest
     {
-        public string Usuario { get; set; } = string.Empty;
-        public string Senha { get; set; } = string.Empty;
+        public string Usuario { get; set; } = "";
+        public string Senha { get; set; } = "";
     }
 
     public class LoginResponse
     {
-        public string Token { get; set; } = string.Empty;
+        public string Token { get; set; } = "";
     }
 }

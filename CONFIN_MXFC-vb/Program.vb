@@ -1,6 +1,6 @@
 '======================================
 ' Program.vb
-' VERSÃO: 15.0.3 (Correção de Inferência e Caminho)
+' VERSÃO: 15.0.4 (Correção de Inicialização e Tratamento DB)
 '=======================================
 Imports System
 Imports System.IO
@@ -35,14 +35,25 @@ Namespace FinanceiroPJ
 
             ' 4. Validação Técnica
             If String.IsNullOrWhiteSpace(Db.ConnectionString) Then
-                Dim msg = $"ERRO: String 'DefaultConnection' não encontrada. " &
+                Dim msg = $"ERRO: String 'DefaultConnection' não encontrada." &
                           $"Verifique se o arquivo existe em: {caminhoExecucao}appsettings.json"
-                Throw New Exception(msg)
+                Console.WriteLine(msg)
+            Else
+                ' 5. Executa as migrações com Proteção de Exceção (Banco: 172.25.25.12)
+                Try
+                    Console.WriteLine("Tentando conectar ao Banco de Dados SQL Server...")
+                    Migrations.EnsureCreatedAsync().GetAwaiter().GetResult()
+                    Console.WriteLine("Conexao e Migracoes concluidas com sucesso.")
+                Catch ex As Exception
+                    Console.WriteLine("==================================================")
+                    Console.WriteLine("FALHA CRÍTICA DE REDE/BANCO DE DADOS (IP 172.25.25.12)")
+                    Console.WriteLine($"ERRO: {ex.Message}")
+                    Console.WriteLine("O Servidor Web será iniciado na porta 5000, mas o login falhará.")
+                    Console.WriteLine("==================================================")
+                End Try
             End If
 
-            ' 5. Executa as migrações (Banco: 172.25.25.12)
-            Migrations.EnsureCreatedAsync().GetAwaiter().GetResult()
-
+            ' 6. Inicia o servidor Kestrel independentemente do status do banco
             appHost.Run()
         End Sub
 
