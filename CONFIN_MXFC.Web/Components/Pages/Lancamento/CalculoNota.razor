@@ -1,0 +1,290 @@
+﻿@*
+8. IDENTIFICAÇÃO DO CÓDIGO
+======================================
+Nome do arquivo: CalculoNota.razor
+Substitui: CalculoNotaForm.vb / CalcService.vb
+VERSÃO: 1.0.0 (Migração Web - Cálculo de NF)
+DATA: 06/05/2026
+=======================================
+*@
+@page "/lancamentos/calculo-nota"
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<PageTitle>Cálculo de Nota Fiscal</PageTitle>
+
+<div class="container-fluid py-3" style="max-width: 900px; margin: 0 auto;">
+    <h3 style="color: #104E6E; font-weight: bold; border-bottom: 2px solid #104E6E; padding-bottom: 10px;">
+        Cálculo da Nota
+    </h3>
+
+    <div class="card shadow-sm border-0 mt-3">
+        <div class="card-body p-4 bg-light">
+            
+            @if (!string.IsNullOrEmpty(statusMessage))
+            {
+                <div class="alert alert-@statusType py-2">@statusMessage</div>
+            }
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-8">
+                    <label class="form-label fw-bold">Colaborador (PJ)</label>
+                    <select class="form-select" @bind="colabSelecionadoId" @bind:after="CarregarDadosPeriodo">
+                        <option value="0">Selecione...</option>
+                        @if (colaboradores != null)
+                        {
+                            foreach (var c in colaboradores)
+                            {
+                                <option value="@c.Id">@c.NomeEmpresa</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Mês</label>
+                    <select class="form-select" @bind="mesSelecionado" @bind:after="CarregarDadosPeriodo">
+                        @for (int i = 1; i <= 12; i++)
+                        {
+                            <option value="@i">@i.ToString("00")</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Ano</label>
+                    <select class="form-select" @bind="anoSelecionado" @bind:after="CarregarDadosPeriodo">
+                        @for (int i = DateTime.Now.Year - 2; i <= DateTime.Now.Year + 1; i++)
+                        {
+                            <option value="@i">@i</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            @if (isLoading)
+            {
+                <div class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Processando...</div>
+            }
+            else if (nfModel != null && colabSelecionadoId > 0)
+            {
+                <div class="row g-4">
+                    <!-- Coluna Esquerda: Entradas -->
+                    <div class="col-md-6 border-end">
+                        <h5 class="fw-bold mb-3 text-secondary">Parâmetros de Custo</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Valor Fixo (Base RH)</label>
+                            <input type="number" step="0.01" class="form-control" @bind="nfModel.ValorFixo" @bind:after="CalcularNota" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">FG</label>
+                            <input type="number" step="0.01" class="form-control" @bind="nfModel.FG" @bind:after="CalcularNota" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Adicional</label>
+                            <input type="number" step="0.01" class="form-control" @bind="nfModel.Adicional" @bind:after="CalcularNota" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold d-flex justify-content-between">
+                                Despesas
+                                <button class="btn btn-sm btn-outline-primary py-0 px-2" @onclick="SomarDespesasServidor">Somar do Período</button>
+                            </label>
+                            <input type="number" step="0.01" class="form-control" @bind="nfModel.Despesas" @bind:after="CalcularNota" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Contador</label>
+                            <input type="number" step="0.01" class="form-control" @bind="nfModel.Contador" @bind:after="CalcularNota" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Centro de Custo</label>
+                            <input type="text" class="form-control" @bind="nfModel.CentroCusto" />
+                        </div>
+                    </div>
+
+                    <!-- Coluna Direita: Resultados e Observação -->
+                    <div class="col-md-6">
+                        <h5 class="fw-bold mb-3 text-secondary">Resultados</h5>
+                        
+                        <div class="card bg-white border-0 shadow-sm mb-3">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted">Prolabore (28%):</span>
+                                    <span class="fw-bold">@nfModel.Prolabore.ToString("C2")</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted">INSS Prolabore (11%):</span>
+                                    <span class="fw-bold">@nfModel.INSSProlabore.ToString("C2")</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
+                                    <span class="text-muted">Imposto NF (6%):</span>
+                                    <span class="fw-bold">@nfModel.ImpostoNF.ToString("C2")</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold fs-5" style="color: #104E6E;">VALOR DA NOTA:</span>
+                                    <span class="fw-bold fs-4 text-success">@nfModel.ValorNF.ToString("C2")</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Observações</label>
+                            <textarea class="form-control" rows="4" @bind="nfModel.Observacao"></textarea>
+                        </div>
+                        
+                        <div class="d-grid mt-4">
+                            <button class="btn btn-success fw-bold py-2" @onclick="SalvarNota" disabled="@isSaving">
+                                @if (isSaving)
+                                {
+                                    <span class="spinner-border spinner-border-sm"></span>
+                                }
+                                else
+                                {
+
+                                    <span>Salvar Cálculo</span>
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    public class ColaboradorDto { public int Id { get; set; } public string NomeEmpresa { get; set; } = string.Empty; }
+    
+    public class NotaFiscalDto
+    {
+        public int Id { get; set; }
+        public int ColaboradorId { get; set; }
+        public int Mes { get; set; }
+        public int Ano { get; set; }
+        public decimal ValorFixo { get; set; }
+        public decimal FG { get; set; }
+        public decimal Adicional { get; set; }
+        public string CentroCusto { get; set; } = string.Empty;
+        public decimal Despesas { get; set; }
+        public decimal Contador { get; set; }
+        public decimal INSSProlabore { get; set; }
+        public decimal ImpostoNF { get; set; }
+        public decimal ValorNF { get; set; }
+        public decimal Prolabore { get; set; }
+        public string Observacao { get; set; } = string.Empty;
+    }
+
+    private List<ColaboradorDto>? colaboradores;
+    private NotaFiscalDto? nfModel;
+    
+    private int colabSelecionadoId = 0;
+    private int mesSelecionado = DateTime.Now.Month;
+    private int anoSelecionado = DateTime.Now.Year;
+
+    private bool isLoading = false;
+    private bool isSaving = false;
+    private string statusMessage = "";
+    private string statusType = "info";
+
+    // Constantes de Cálculo transferidas do CalcService.vb
+    private const decimal Pct_Imposto = 0.06m;
+    private const decimal Pct_INSS = 0.11m;
+    private const decimal Pct_Prolabore = 0.28m;
+
+    protected override async Task OnInitializedAsync()
+    {
+        colaboradores = await Http.GetFromJsonAsync<List<ColaboradorDto>>("api/Colaboradores");
+    }
+
+    private async Task CarregarDadosPeriodo()
+    {
+        if (colabSelecionadoId == 0)
+        {
+            nfModel = null;
+            return;
+        }
+
+        isLoading = true;
+        statusMessage = "";
+        try
+        {
+            // Busca a nota fiscal existente ou os parâmetros iniciais (via API backend)
+            nfModel = await Http.GetFromJsonAsync<NotaFiscalDto>($"api/NotasFiscais/calcular?colabId={colabSelecionadoId}&mes={mesSelecionado}&ano={anoSelecionado}");
+            CalcularNota();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Erro ao obter parâmetros do banco: {ex.Message}";
+            statusType = "danger";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SomarDespesasServidor()
+    {
+        try
+        {
+            // Chama API para somar os gastos registrados no módulo Lançamento de Gastos
+            var soma = await Http.GetFromJsonAsync<decimal>($"api/Gastos/somar?colabId={colabSelecionadoId}&mes={mesSelecionado}&ano={anoSelecionado}");
+            if (nfModel != null)
+            {
+                nfModel.Despesas = soma;
+                CalcularNota();
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Falha ao calcular despesas: {ex.Message}";
+            statusType = "warning";
+        }
+    }
+
+    private void CalcularNota()
+    {
+        if (nfModel == null) return;
+
+        decimal custosBase = nfModel.ValorFixo + nfModel.FG + nfModel.Adicional + nfModel.Despesas + nfModel.Contador;
+        decimal denominador = 1m - Pct_Imposto - (Pct_Prolabore * Pct_INSS);
+        
+        if (Math.Abs(denominador) < 0.0000001m) denominador = 1m;
+
+        nfModel.ValorNF = custosBase / denominador;
+        nfModel.Prolabore = nfModel.ValorNF * Pct_Prolabore;
+        nfModel.INSSProlabore = nfModel.Prolabore * Pct_INSS;
+        nfModel.ImpostoNF = nfModel.ValorNF * Pct_Imposto;
+    }
+
+    private async Task SalvarNota()
+    {
+        if (nfModel == null) return;
+        isSaving = true;
+        try
+        {
+            nfModel.Mes = mesSelecionado;
+            nfModel.Ano = anoSelecionado;
+            nfModel.ColaboradorId = colabSelecionadoId;
+
+            var response = await Http.PostAsJsonAsync("api/NotasFiscais", nfModel);
+            if (response.IsSuccessStatusCode)
+            {
+                statusMessage = "Cálculo e lançamento registrados com sucesso no banco de dados.";
+                statusType = "success";
+            }
+            else
+            {
+                statusMessage = "Falha ao gravar registro.";
+                statusType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Erro de infraestrutura: {ex.Message}";
+            statusType = "danger";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

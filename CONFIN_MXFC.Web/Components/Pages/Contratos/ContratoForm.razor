@@ -1,0 +1,280 @@
+﻿@*
+8. IDENTIFICAÇÃO DO CÓDIGO
+======================================
+ContratoForm.razor (Substitui EditContratoDialog.vb)
+VERSÃO: 1.0.0 (Migração Web)
+=======================================
+*@
+@page "/contratos/editar/{ClienteId:int}/{ContratoId:int}"
+@using System.Net.Http.Json
+@using Microsoft.JSInterop
+@inject HttpClient Http
+@inject NavigationManager NavManager
+@inject IJSRuntime JSRuntime
+
+<PageTitle>@(ContratoId == 0 ? "Novo Contrato" : "Editar Contrato")</PageTitle>
+
+<div class="container-fluid py-3" style="max-width: 900px; margin: 0 auto;">
+    
+    <div class="d-flex align-items-center mb-4">
+        <button class="btn btn-outline-secondary me-3" @onclick="Voltar">
+            <i class="oi oi-arrow-left"></i> Voltar
+        </button>
+        <h3 style="color: #104E6E; font-weight: bold; margin: 0;">
+            @(ContratoId == 0 ? "Novo Contrato" : "Detalhes do Contrato")
+        </h3>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5 text-muted">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            Carregando dados do contrato...
+        </div>
+    }
+    else if (contratoModel != null)
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                
+                @if (!string.IsNullOrEmpty(statusMessage))
+                {
+                    <div class="alert alert-@statusType py-2">@statusMessage</div>
+                }
+
+                <div class="row g-3">
+                    
+                    <!-- Número e Valor -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Nº do Contrato <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="contratoModel.NumeroContrato" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Valor Inicial (R$)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">R$</span>
+                            <input type="number" step="0.01" class="form-control" @bind="contratoModel.Valor" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label fw-bold">Centro de Custo</label>
+                        <input type="text" class="form-control" @bind="contratoModel.CentroCusto" />
+                    </div>
+
+                    <!-- Controle de Datas -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Data Inicial</label>
+                        <input type="date" class="form-control" @bind="contratoModel.DataInicial" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Data Inicial</label>
+                        <input type="date" class="form-control" @bind="contratoModel.DataInicial" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Data Final</label>
+                        <input type="date" class="form-control" @bind="contratoModel.DataFinal" />
+                    </div>
+                </div>
+                
+                <hr class="mt-4 mb-3" />
+                
+                <!-- Gestão de Anexos (Somente Leitura por enquanto para Simplificação da Migração) -->
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label class="form-label fw-bold">Anexos Vinculados</label>
+                        @if (contratoModel.Anexos != null && contratoModel.Anexos.Any())
+                        {
+                            <ul class="list-group">
+                                @foreach (var anexo in contratoModel.Anexos)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        @anexo.NomeArquivo
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoverAnexoVisual(anexo)">
+                                            <i class="oi oi-trash"></i>
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <div class="text-muted fst-italic">Nenhum anexo salvo neste contrato.</div>
+                        }
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end mt-4">
+                    <button class="btn btn-secondary me-2" @onclick="Voltar">Cancelar</button>
+                    <button class="btn btn-success px-4" @onclick="SalvarContrato" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>Salvando...</span>
+                        }
+                        else
+                        {
+                            <i class="oi oi-check me-1"></i> <span>Salvar Contrato</span>
+                        }
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int ClienteId { get; set; }
+    
+    [Parameter]
+    public int ContratoId { get; set; }
+
+    // DTOs para espelhar as classes do VB.NET
+    public class ContratoAnexoDto
+    {
+        public int Id { get; set; }
+        public int ContratoId { get; set; }
+        public string NomeArquivo { get; set; } = string.Empty;
+        public byte[]? Conteudo { get; set; }
+    }
+
+    public class ContratoDto
+    {
+        public int Id { get; set; }
+        public int ClienteId { get; set; }
+        public string NumeroContrato { get; set; } = string.Empty;
+        public decimal Valor { get; set; }
+        public DateTime DataInicial { get; set; }
+        public DateTime DataFinal { get; set; }
+        public int Prazo { get; set; }
+        public string CentroCusto { get; set; } = string.Empty;
+        public List<ContratoAnexoDto> Anexos { get; set; } = new();
+    }
+
+    private ContratoDto? contratoModel;
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string statusMessage = "";
+    private string statusType = "info";
+
+    
+    // Cálculo dinâmico do Prazo (Substitui o evento Dtp_ValueChanged do VB)
+    private string PrazoCalculado
+    {
+        get
+        {
+            if (contratoModel == null) return "0";
+            var dias = (contratoModel.DataFinal.Date - contratoModel.DataInicial.Date).TotalDays;
+            return $"{dias} dias";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (ContratoId == 0)
+            {
+                // Novo Contrato
+                contratoModel = new ContratoDto
+                {
+                    ClienteId = ClienteId,
+                    DataInicial = DateTime.Today,
+                    DataFinal = DateTime.Today.AddYears(1)
+                };
+            }
+            else
+            {
+                // Busca os contratos do Cliente (Rota da API baseada no ContratosController)
+                var lista = await Http.GetFromJsonAsync<List<ContratoDto>>($"api/Contratos/cliente/{ClienteId}");
+                if (lista != null)
+                {
+                    contratoModel = lista.FirstOrDefault(c => c.Id == ContratoId);
+                    
+                    // Se encontrou, busca os anexos (Rota GET api/Contratos/{id}/anexos)
+                    if (contratoModel != null)
+                    {
+                        var anexos = await Http.GetFromJsonAsync<List<ContratoAnexoDto>>($"api/Contratos/{ContratoId}/anexos");
+                        if (anexos != null) contratoModel.Anexos = anexos;
+                    }
+                }
+                
+                if (contratoModel == null)
+                {
+                    statusMessage = "Contrato não encontrado.";
+                    statusType = "danger";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Erro de conexão: {ex.Message}";
+            statusType = "danger";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void RemoverAnexoVisual(ContratoAnexoDto anexo)
+    {
+        // Remove da lista em memória para não salvar (a exclusão física ocorrerá no Salvar ou direto na API)
+        // Por simplificação nesta etapa, apenas removemos do grid visual.
+        contratoModel?.Anexos.Remove(anexo);
+    }
+
+    private async Task SalvarContrato()
+    {
+        if (contratoModel == null) return;
+
+        if (string.IsNullOrWhiteSpace(contratoModel.NumeroContrato))
+        {
+            statusMessage = "O Número do Contrato é obrigatório.";
+            statusType = "warning";
+            return;
+        }
+
+        isSaving = true;
+        statusMessage = "Salvando contrato...";
+        statusType = "info";
+
+        try
+        {
+            // Calcula o prazo final antes de salvar no banco
+            contratoModel.Prazo = (int)(contratoModel.DataFinal.Date - contratoModel.DataInicial.Date).TotalDays;
+
+            // Rota POST na API
+            var response = await Http.PostAsJsonAsync("api/Contratos", contratoModel);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Voltar();
+            }
+            else
+            {
+                statusMessage = "Erro ao salvar no banco de dados.";
+                statusType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Falha de rede: {ex.Message}";
+            statusType = "danger";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void Voltar()
+    {
+        NavManager.NavigateTo($"/contratos/cliente/{ClienteId}");
+    }
+}

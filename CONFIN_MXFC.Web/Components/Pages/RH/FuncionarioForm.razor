@@ -1,0 +1,197 @@
+﻿@*
+IDENTIFICAÇÃO DO CÓDIGO
+======================================
+Nome do arquivo: FuncionarioForm.razor
+Substitui: CadastroFuncionariosForm.vb (Parte de Edição)
+VERSÃO: 1.0.0 (Migração Web - Formulário de Ficha Cadastral)
+=======================================
+*@
+@page "/rh/funcionarios/novo"
+@page "/rh/funcionarios/editar/{Reg:int}"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager NavManager
+
+<PageTitle>@tituloPagina - MXFC</PageTitle>
+
+<div class="container py-4" style="max-width: 800px;">
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white pt-4 border-0">
+            <h4 style="color: #104E6E; font-weight: bold;">
+                <i class="oi oi-person me-2"></i> @tituloPagina
+            </h4>
+            <hr />
+        </div>
+        <div class="card-body p-4">
+            @if (isLoading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-2 text-muted">Acedendo ao banco de dados...</p>
+                </div>
+            }
+            else
+            {
+                <EditForm Model="@model" OnValidSubmit="Salvar">
+                    <DataAnnotationsValidator />
+
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Registro (REG)</label>
+                            <InputNumber @bind-Value="model.REG" class="form-control" disabled="@(Reg > 0)" />
+                        </div>
+
+                        <div class="col-md-9">
+                            <label class="form-label fw-bold">Nome Completo</label>
+                            <InputText @bind-Value="model.NomeCompleto" class="form-control" placeholder="Ex: Cristiano Reffatti Rocha" />
+                            <ValidationMessage For="@(() => model.NomeCompleto)" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">CPF</label>
+                            <InputText @bind-Value="model.CPF" class="form-control" placeholder="000.000.000-00" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Cargo / Função</label>
+                            <InputText @bind-Value="model.Cargo" class="form-control" placeholder="Ex: Engenheiro Civil" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Data de Admissão</label>
+                            <InputDate @bind-Value="model.DataAdmissao" class="form-control" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Telefone</label>
+                            <InputText @bind-Value="model.Telefone" class="form-control" placeholder="(51) 99999-9999" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">E-mail</label>
+                            <InputText @bind-Value="model.Email" class="form-control" placeholder="nome@mxfc.com.br" />
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check form-switch mt-2">
+                                <InputCheckbox @bind-Value="model.Ativo" class="form-check-input" id="chkAtivo" />
+                                <label class="form-check-label fw-bold" for="chkAtivo">Colaborador Ativo</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-5">
+                        <button type="button" class="btn btn-outline-secondary px-4 fw-bold" @onclick="Voltar">
+                            CANCELAR
+                        </button>
+                        <button type="submit" class="btn btn-primary px-5 fw-bold" disabled="@isSubmitting">
+                            @if (isSubmitting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="oi oi-check me-1"></i> GRAVAR FICHA
+                        </button>
+                    </div>
+                </EditForm>
+            }
+
+            @if (!string.IsNullOrEmpty(statusMessage))
+            {
+                <div class="alert alert-@statusType mt-3">@statusMessage</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Reg { get; set; } // Captura o REG da URL se for edição
+
+    private Funcionario model = new Funcionario();
+    private bool isLoading = false;
+    private bool isSubmitting = false;
+    private string statusMessage = "";
+    private string statusType = "danger";
+    private string tituloPagina => Reg > 0 ? "Editar Ficha Cadastral" : "Nova Ficha Cadastral";
+
+    // Classe de modelo interna (deve espelhar a sua classe Funcionario do Backend)
+    public class Funcionario
+    {
+        public int REG { get; set; }
+        public string NomeCompleto { get; set; } = "";
+        public string CPF { get; set; } = "";
+        public string Cargo { get; set; } = "";
+        public DateTime? DataAdmissao { get; set; } = DateTime.Today;
+        public string Telefone { get; set; } = "";
+        public string Email { get; set; } = "";
+        public bool Ativo { get; set; } = true;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Reg > 0)
+        {
+            await CarregarDados();
+        }
+    }
+
+    private async Task CarregarDados()
+    {
+        isLoading = true;
+        try
+        {
+            var result = await Http.GetFromJsonAsync<Funcionario>($"api/Funcionarios/{Reg}");
+            if (result != null) model = result;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Erro ao carregar colaborador: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Salvar()
+    {
+        isSubmitting = true;
+        statusMessage = "";
+
+        try
+        {
+            HttpResponseMessage response;
+
+            if (Reg > 0)
+            {
+                // Modo Edição: Faz um POST (ou PUT conforme sua rota) enviando o objeto atualizado
+                response = await Http.PostAsJsonAsync("api/Funcionarios", model);
+            }
+            else
+            {
+                // Modo Novo: Faz o POST para criar um novo registro
+                response = await Http.PostAsJsonAsync("api/Funcionarios", model);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                NavManager.NavigateTo("/rh/funcionarios");
+            }
+            else
+            {
+                statusMessage = "Erro ao gravar no banco de dados. Verifique os dados e tente novamente.";
+                statusType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Falha de conexão: {ex.Message}";
+            statusType = "danger";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void Voltar() => NavManager.NavigateTo("/rh/funcionarios");
+}

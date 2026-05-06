@@ -1,0 +1,273 @@
+﻿@*
+8. IDENTIFICAÇÃO DO CÓDIGO
+======================================
+Nome do arquivo: Usuarios.razor
+Substitui: GestaoUsuariosForm.vb / .Designer.vb
+VERSÃO: 1.0.0 (Migração Web - Gestão de Acessos)
+DATA: 06/05/2026
+=======================================
+*@
+@page "/admin/usuarios"
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<PageTitle>Gestão de Usuários</PageTitle>
+
+<div class="container-fluid py-3" style="max-width: 900px; margin: 0 auto;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 style="color: #104E6E; font-weight: bold; margin: 0;">Gestão de Usuários</h3>
+    </div>
+
+    <!-- Formulário de Novo Usuário[cite: 21] -->
+    <div class="card shadow-sm border-0 mb-4 bg-light">
+        <div class="card-header bg-white border-bottom pb-2 pt-3">
+            <h5 class="fw-bold m-0 text-secondary">Novo Utilizador</h5>
+        </div>
+        <div class="card-body py-3">
+            
+            @if (!string.IsNullOrEmpty(formMessage))
+            {
+                <div class="alert alert-@formMessageType py-2">@formMessage</div>
+            }
+
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold m-0">Nome de Utilizador</label>
+                    <input type="text" class="form-control" @bind="novoUsuario.Username" />
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label fw-bold m-0">Senha Provisória</label>
+                    <input type="text" class="form-control bg-white" @bind="novoUsuario.Password" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label fw-bold m-0">Nível de Acesso</label>
+                    <select class="form-select" @bind="novoUsuario.Role">
+                        <option value="USUARIO">USUARIO</option>
+                        <option value="ADMIN">ADMIN</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2 d-flex gap-2">
+                    <button class="btn btn-outline-secondary w-50" @onclick="LimparCampos" title="Limpar">
+                        <i class="oi oi-x"></i>
+                    </button>
+                    <button class="btn btn-success w-100 fw-bold" @onclick="SalvarUsuario" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        else
+                        {
+
+                            <span>Salvar</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Usuários -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center pt-3 pb-2">
+            <h5 class="fw-bold m-0 text-secondary">Utilizadores Cadastrados</h5>
+            <div>
+                <button class="btn btn-sm btn-warning fw-bold me-2" @onclick="ResetarSenha" disabled="@(!IsSelecionado)">
+                    <i class="oi oi-key me-1"></i> Redefinir Senha
+                </button>
+                <button class="btn btn-sm btn-danger fw-bold" @onclick="ExcluirUsuario" disabled="@(!IsSelecionado)">
+                    <i class="oi oi-trash me-1"></i> Excluir Selecionado
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            @if (isLoading)
+            {
+                <div class="p-4 text-center text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div> Carregando sistema...
+                </div>
+            }
+            else if (listaUsuarios == null || !listaUsuarios.Any())
+            {
+                <div class="p-4 text-center text-muted">Nenhum utilizador encontrado.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Utilizador</th>
+                                <th>Nível de Acesso</th>
+                                <th class="text-center">Mudar Senha no Login?</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in listaUsuarios)
+                            {
+                                <tr @onclick="() => SelecionarUsuario(user)"
+                                    class="@(usuarioSelecionado?.Username == user.Username ? "table-primary" : "")"
+                                    style="cursor: pointer;">
+                                    
+                                    <td class="fw-bold">@user.Username</td>
+                                    <td>
+                                        <span class="badge @(user.Role == "PROGRAMADOR" ? "bg-dark" : (user.Role == "ADMIN" ? "bg-danger" : "bg-primary"))">
+                                            @user.Role
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        @if (user.MustChangePassword)
+                                        {
+                                            <span class="text-warning fw-bold"><i class="oi oi-warning"></i> Sim</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-success"><i class="oi oi-check"></i> Não</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    public class UsuarioDto
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = "1234";
+        public string Role { get; set; } = "USUARIO";
+        public bool MustChangePassword { get; set; }
+    }
+
+    private List<UsuarioDto>? listaUsuarios;
+    private UsuarioDto novoUsuario = new UsuarioDto();
+    private UsuarioDto? usuarioSelecionado;
+    
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string formMessage = "";
+    private string formMessageType = "info";
+    
+    private bool IsSelecionado => usuarioSelecionado != null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarGrid();
+    }
+
+    private async Task CarregarGrid()
+    {
+        isLoading = true;
+        try
+        {
+            listaUsuarios = await Http.GetFromJsonAsync<List<UsuarioDto>>("api/Usuarios");
+            usuarioSelecionado = null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void SelecionarUsuario(UsuarioDto user)
+    {
+        if (usuarioSelecionado?.Username == user.Username)
+        {
+            usuarioSelecionado = null;
+            LimparCampos();
+        }
+        else
+        {
+            usuarioSelecionado = user;
+            novoUsuario.Username = user.Username;
+            novoUsuario.Role = user.Role;
+            novoUsuario.Password = ""; // Não exibe a senha atual (Hash)[cite: 31]
+        }
+    }
+
+    private void LimparCampos()
+    {
+        novoUsuario = new UsuarioDto();
+        formMessage = "";
+    }
+
+    private async Task SalvarUsuario()
+    {
+        if (string.IsNullOrWhiteSpace(novoUsuario.Username) || string.IsNullOrWhiteSpace(novoUsuario.Password))
+        {
+            formMessage = "Usuário e senha são obrigatórios.";
+            formMessageType = "warning";
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/Usuarios/registrar", novoUsuario);
+            if (response.IsSuccessStatusCode)
+            {
+                formMessage = $"Utilizador '{novoUsuario.Username}' salvo. Ele deverá trocar a senha no primeiro login.";
+                formMessageType = "success";
+                await CarregarGrid();
+            }
+            else
+            {
+                formMessage = "Falha ao registrar utilizador.";
+                formMessageType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            formMessage = $"Erro: {ex.Message}";
+            formMessageType = "danger";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ExcluirUsuario()
+    {
+        if (usuarioSelecionado == null) return;
+
+        if (usuarioSelecionado.Role == "PROGRAMADOR")
+        {
+            formMessage = "Não é possível excluir um Programador pela interface.";
+            formMessageType = "danger";
+            return;
+        }
+
+        // Lógica simulada de confirmação
+        var response = await Http.DeleteAsync($"api/Usuarios/{usuarioSelecionado.Username}");
+        if (response.IsSuccessStatusCode)
+        {
+            LimparCampos();
+            await CarregarGrid();
+        }
+    }
+
+    private async Task ResetarSenha()
+    {
+        if (usuarioSelecionado == null) return;
+
+        var response = await Http.PostAsync($"api/Usuarios/resetar/{usuarioSelecionado.Username}", null);
+        if (response.IsSuccessStatusCode)
+        {
+            formMessage = $"Senha de '{usuarioSelecionado.Username}' redefinida para '1234'.";
+            formMessageType = "success";
+            await CarregarGrid();
+        }
+    }
+}

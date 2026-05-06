@@ -1,0 +1,79 @@
+﻿@page "/login"
+@using Microsoft.AspNetCore.Authorization
+@attribute [AllowAnonymous]
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager NavManager
+@inject global::CONFIN_MXFC.Web.Security.CustomAuthStateProvider AuthProvider
+
+<div class="container d-flex align-items-center justify-content-center vh-100">
+    <div class="card p-4 shadow-sm border-0" style="width: 400px;">
+        <h3 class="text-center text-primary fw-bold mb-4">ENTRAR</h3>
+
+        <EditForm Model="@loginModel" OnValidSubmit="ExecutarLogin">
+            <div class="mb-3">
+                <label class="form-label fw-bold">Usuário</label>
+                <InputText @bind-Value="loginModel.Usuario" class="form-control" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">Senha</label>
+                <InputText @bind-Value="loginModel.Senha" type="password" class="form-control" />
+            </div>
+            <button type="submit" class="btn btn-primary w-100 fw-bold" disabled="@isProcessing">
+                @if (isProcessing)
+                {
+                    <span class="spinner-border spinner-border-sm"></span>
+                }
+                ACESSAR
+            </button>
+        </EditForm>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger mt-3 py-2 text-center small">@errorMessage</div>
+        }
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginModel = new LoginRequest();
+    private bool isProcessing = false;
+    private string errorMessage = "";
+
+    private async Task ExecutarLogin()
+    {
+        isProcessing = true;
+        errorMessage = "";
+        try
+        {
+            var response = await Http.PostAsJsonAsync("http://localhost:5000/api/auth/login", loginModel);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
+                if (result != null && !string.IsNullOrEmpty(result.Token))
+                {
+                    await Http.PostAsJsonAsync("/auth/local-login", result.Token);
+                    await AuthProvider.MarcarUsuarioComoAutenticado(result.Token);
+                    NavManager.NavigateTo("/", forceLoad: true);
+                }
+            }
+            else { errorMessage = "Credenciais inválidas."; }
+        }
+        catch { errorMessage = "Erro de conexão com a API."; }
+        finally { isProcessing = false; }
+    }
+
+    public class LoginRequest
+    {
+        public string Usuario { get; set; } = "";
+        public string Senha { get; set; } = "";
+    }
+
+    public class LoginResponse
+    {
+        public string Token { get; set; } = "";
+    }
+}

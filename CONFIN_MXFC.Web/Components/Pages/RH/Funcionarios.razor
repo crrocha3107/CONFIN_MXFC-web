@@ -1,0 +1,131 @@
+﻿@*
+======================================
+Nome do arquivo: Funcionarios.razor
+Substitui: CadastroFuncionarios.vb (Interface de Listagem)
+VERSÃO: 14.5.0 (Correção CS0246 - Namespace de Autorização)
+DATA: 06/05/2026
+=======================================
+*@
+@page "/rh/funcionarios"
+@using Microsoft.AspNetCore.Authorization
+@using System.Net.Http.Json
+@attribute [Authorize]
+@inject HttpClient Http
+@inject NavigationManager NavManager
+
+<PageTitle>RH - Fichas Cadastrais - MXFC</PageTitle>
+
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 bg-white p-3 border rounded shadow-sm">
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary fw-bold" @onclick="@(() => NavManager.NavigateTo("/rh/funcionarios/novo"))">
+                <i class="oi oi-plus me-1"></i> NOVO
+            </button>
+            <button class="btn btn-outline-secondary fw-bold" disabled="@(selecionado == null)" @onclick="Editar">
+                <i class="oi oi-pencil me-1"></i> EDITAR FICHA
+            </button>
+            <button class="btn btn-outline-success fw-bold">
+                <i class="oi oi-spreadsheet me-1"></i> EXPORTAR EXCEL
+            </button>
+        </div>
+        <div class="text-end">
+            <h5 class="m-0" style="color: #104E6E; font-weight: bold;">Recursos Humanos</h5>
+            <small class="text-muted">Gestão de Fichas Cadastrais (PF)</small>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive" style="max-height: 75vh;">
+            <table class="table table-hover table-sm align-middle mb-0">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th style="width: 80px;" class="ps-3">REG</th>
+                        <th>NOME COMPLETO</th>
+                        <th>CPF</th>
+                        <th>CARGO / FUNÇÃO</th>
+                        <th>ADMISSÃO</th>
+                        <th>TELEFONE</th>
+                        <th style="width: 120px;" class="text-center">SITUAÇÃO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (lista == null)
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center p-5">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2 text-muted">Acessando base de dados SQLite...</p>
+                            </td>
+                        </tr>
+                    }
+                    else if (lista.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center p-5 text-muted">Nenhum registro encontrado.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var f in lista)
+                        {
+                            <tr @onclick="() => selecionado = f"
+                                class="@(selecionado?.REG == f.REG ? "table-primary" : "")"
+                                style="cursor:pointer;">
+                                <td class="ps-3 fw-bold">@f.REG</td>
+                                <td class="fw-bold text-dark">@f.NomeCompleto</td>
+                                <td>@f.CPF</td>
+                                <td>@f.Cargo</td>
+                                <td>@f.DataAdmissao?.ToShortDateString()</td>
+                                <td>@f.Telefone</td>
+                                <td class="text-center">
+                                    <span class="badge rounded-pill @(f.Ativo ? "bg-success" : "bg-secondary")" style="width: 80px;">
+                                        @(f.Ativo ? "ATIVO" : "INATIVO")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-white text-end py-2 border-top">
+            <small class="text-muted">Total de colaboradores listados: <b>@(lista?.Count ?? 0)</b></small>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<FuncionarioDto>? lista;
+    private FuncionarioDto? selecionado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            lista = await Http.GetFromJsonAsync<List<FuncionarioDto>>("api/Funcionarios");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar lista: {ex.Message}");
+        }
+    }
+
+    private void Editar()
+    {
+        if (selecionado != null)
+        {
+            NavManager.NavigateTo($"/rh/funcionarios/editar/{selecionado.REG}");
+        }
+    }
+
+    public class FuncionarioDto
+    {
+        public int REG { get; set; }
+        public string NomeCompleto { get; set; } = string.Empty;
+        public string CPF { get; set; } = string.Empty;
+        public string Cargo { get; set; } = string.Empty;
+        public DateTime? DataAdmissao { get; set; }
+        public string Telefone { get; set; } = string.Empty;
+        public bool Ativo { get; set; }
+    }
+}

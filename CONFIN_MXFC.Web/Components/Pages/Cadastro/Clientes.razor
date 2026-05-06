@@ -1,0 +1,139 @@
+﻿@*
+8. IDENTIFICAÇÃO DO CÓDIGO
+======================================
+Nome do arquivo: Clientes.razor
+Substitui: CadastroClientesForm.vb / .Designer.vb
+VERSÃO: 1.0.0 (Migração Web - Gestão de Clientes)
+=======================================
+*@
+@page "/clientes"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager NavManager
+
+<PageTitle>Clientes & Contratos</PageTitle>
+
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 style="color: #104E6E; font-weight: bold; margin: 0;">Cadastro de Clientes</h3>
+        <button class="btn btn-primary fw-bold" @onclick="NovoCliente">
+            <i class="oi oi-plus me-1"></i> Novo Cliente
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-info py-2">@statusMessage</div>
+    }
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            @if (isLoading)
+            {
+                <div class="p-5 text-center text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div> Carregando base de clientes...
+                </div>
+            }
+            else if (listaClientes == null || !listaClientes.Any())
+            {
+                <div class="p-5 text-center text-muted">
+                    <i class="oi oi-people fs-1 d-block mb-2 text-light"></i>
+                    Nenhum cliente cadastrado no banco de dados.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 80px;">ID</th>
+                                <th>Razão Social / Nome</th>
+                                <th>CNPJ / CPF</th>
+                                <th>Status</th>
+                                <th class="text-end" style="width: 250px;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var cliente in listaClientes)
+                            {
+                                <tr>
+                                    <td class="text-muted fw-bold">@cliente.Id.ToString("000")</td>
+                                    <td class="fw-bold" style="color: #104E6E;">@cliente.RazaoSocial</td>
+                                    <td>@cliente.Documento</td>
+                                    <td>
+                                        <span class="badge @(cliente.Ativo ? "bg-success" : "bg-danger")">
+                                            @(cliente.Ativo ? "ATIVO" : "INATIVO")
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <!-- O roteamento substitui a lógica do ModoSelecao = True -->
+                                        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => EditarCliente(cliente.Id)">
+                                            <i class="oi oi-pencil"></i> Editar
+                                        </button>
+                                        <button class="btn btn-sm btn-info text-white fw-bold" @onclick="() => AbrirContratos(cliente.Id)">
+                                            <i class="oi oi-document"></i> Contratos
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    public class ClienteDto
+    {
+        public int Id { get; set; }
+        public string RazaoSocial { get; set; } = string.Empty;
+        public string Documento { get; set; } = string.Empty;
+        public bool Ativo { get; set; }
+    }
+
+    private List<ClienteDto>? listaClientes;
+    private bool isLoading = true;
+    private string statusMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarClientes();
+    }
+
+    private async Task CarregarClientes()
+    {
+        isLoading = true;
+        try
+        {
+            // API correspondente ao ClienteRepo.Listar()
+            listaClientes = await Http.GetFromJsonAsync<List<ClienteDto>>("api/Clientes");
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Erro ao carregar dados: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void NovoCliente()
+    {
+        NavManager.NavigateTo("/clientes/novo");
+    }
+
+    private void EditarCliente(int id)
+    {
+        NavManager.NavigateTo($"/clientes/editar/{id}");
+    }
+
+    private void AbrirContratos(int id)
+    {
+        // Navega para a gestão de contratos amarrada ao ID do cliente
+        NavManager.NavigateTo($"/clientes/{id}/contratos");
+    }
+}

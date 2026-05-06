@@ -1,0 +1,46 @@
+﻿@*
+======================================
+Arquivo: MainLayout.razor
+VERSÃO: 14.5.1 (Correção de Namespace no Código)
+======================================
+*@
+@inherits LayoutComponentBase
+@inject NavigationManager NavManager
+@using Microsoft.AspNetCore.Components.Authorization
+
+<div class="page">
+    <AuthorizeView>
+        <Authorized>
+            <div class="sidebar shadow">
+                <NavMenu />
+            </div>
+            <main>
+                <div class="top-row px-4 border-bottom bg-white d-flex justify-content-between align-items-center">
+                    <span class="text-muted fw-bold small">MXFC ENGENHARIA LTDA</span>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="Sair">Sair / Logout</button>
+                </div>
+                <article class="content px-4">
+                    @Body
+                </article>
+            </main>
+        </Authorized>
+        <NotAuthorized>
+            <main>
+                <article class="content">@Body</article>
+            </main>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
+
+@code {
+    [Inject] private HttpClient Http { get; set; } = default!;
+    // Uso de namespace completo para evitar CS0234
+    [Inject] private global::CONFIN_MXFC.Web.Security.CustomAuthStateProvider AuthProvider { get; set; } = default!;
+
+    private async Task Sair()
+    {
+        await Http.PostAsync("/auth/local-logout", null);
+        await AuthProvider.MarcarUsuarioComoDeslogado();
+        NavManager.NavigateTo("/login", forceLoad: true);
+    }
+}

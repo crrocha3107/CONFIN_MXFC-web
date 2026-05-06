@@ -1,0 +1,329 @@
+﻿@*
+8. IDENTIFICAÇÃO DO CÓDIGO
+======================================
+Nome do arquivo: Gastos.razor
+Substitui: LancamentoGastosForm.vb / EditGastoDialog.vb
+VERSÃO: 1.0.0 (Migração Web)
+DATA: 06/05/2026
+=======================================
+*@
+@page "/lancamentos/gastos"
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<PageTitle>Lançamento de Gastos</PageTitle>
+
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 style="color: #104E6E; font-weight: bold; margin: 0;">Lançamento de Gastos</h3>
+    </div>
+
+    <!-- Barra de Ferramentas e Filtros -->
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body py-3 d-flex flex-wrap align-items-end gap-3">
+            
+            <div class="flex-grow-1" style="min-width: 250px;">
+                <label class="form-label fw-bold mb-1">Colaborador</label>
+                <select class="form-select" @bind="colabSelecionadoId">
+                    <option value="0">Selecione o Colaborador...</option>
+                    @if (colaboradores != null)
+                    {
+                        foreach (var c in colaboradores)
+                        {
+                            <option value="@c.Id">@c.NomeEmpresa</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div style="width: 120px;">
+                <label class="form-label fw-bold mb-1">Mês</label>
+                <select class="form-select" @bind="mesSelecionado">
+                    @for (int i = 1; i <= 12; i++)
+                    {
+                        <option value="@i">@i.ToString("00")</option>
+                    }
+                </select>
+            </div>
+
+            <div style="width: 120px;">
+                <label class="form-label fw-bold mb-1">Ano</label>
+                <select class="form-select" @bind="anoSelecionado">
+                    @for (int i = DateTime.Now.Year - 5; i <= DateTime.Now.Year + 1; i++)
+                    {
+                        <option value="@i">@i</option>
+                    }
+                </select>
+            </div>
+
+            <div>
+                <button class="btn btn-primary" @onclick="AtualizarGrid">
+                    <i class="oi oi-magnifying-glass"></i> Filtrar
+                </button>
+            </div>
+            
+            <div class="vr mx-1"></div>
+
+            <div>
+                <button class="btn btn-success" @onclick="() => AbrirModal(new GastoDto { ColaboradorId = colabSelecionadoId, Data = DateTime.Today })" disabled="@(colabSelecionadoId == 0)">
+                    <i class="oi oi-plus"></i> Novo Gasto
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Dados -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            @if (isLoading)
+            {
+                <div class="p-4 text-center text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div> Carregando...
+                </div>
+            }
+            else if (listaGastos == null || !listaGastos.Any())
+            {
+                <div class="p-4 text-center text-muted">
+                    Nenhum gasto encontrado para este período.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data</th>
+                                <th>Nome da Despesa</th>
+                                <th>Tipo</th>
+                                <th>Valor</th>
+                                <th class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var gasto in listaGastos)
+                            {
+                                <tr>
+                                    <td>@gasto.Data.ToString("dd/MM/yyyy")</td>
+                                    <td class="fw-bold">@gasto.NomeDespesa</td>
+                                    <td>@gasto.TipoDespesa</td>
+                                    <td class="text-danger fw-bold">@gasto.Valor.ToString("C2")</td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => AbrirModal(gasto)">
+                                            <i class="oi oi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger me-1" @onclick="() => ExcluirGasto(gasto.Id)">
+                                            <i class="oi oi-trash"></i>
+                                        </button>
+                                        @if (gasto.Anexo != null && gasto.Anexo.Length > 0)
+                                        {
+                                            <button class="btn btn-sm btn-info text-white" title="Ver Anexo">
+                                                <i class="oi oi-paperclip"></i>
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Edição (Simulado via CSS) -->
+@if (mostrarModal && gastoEdicao != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title" style="color: #104E6E; font-weight: bold;">
+                        @(gastoEdicao.Id == 0 ? "Novo Gasto" : "Editar Gasto")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="FecharModal"></button>
+                </div>
+                <div class="modal-body">
+                    
+                    @if (!string.IsNullOrEmpty(modalError))
+                    {
+                        <div class="alert alert-danger py-2">@modalError</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Data</label>
+                        <input type="date" class="form-control" @bind="gastoEdicao.Data" />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nome da Despesa <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="gastoEdicao.NomeDespesa" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tipo de Despesa</label>
+                        <select class="form-select" @bind="gastoEdicao.TipoDespesa">
+                            <option value="Transporte">Transporte</option>
+                            <option value="Alimentação">Alimentação</option>
+                            <option value="Material de Escritório">Material de Escritório</option>
+                            <option value="Abastecimento">Abastecimento</option>
+                            <option value="Cursos">Cursos</option>
+                            <option value="Outras Despesas">Outras Despesas</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Valor (R$)</label>
+                        <input type="number" step="0.01" class="form-control" @bind="gastoEdicao.Valor" />
+                    </div>
+                    
+                    <!-- Area para Upload de Arquivo omitida nesta fase até instalarmos o pacote de Blobs Web -->
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" @onclick="FecharModal">Cancelar</button>
+                    <button type="button" class="btn btn-success" @onclick="SalvarGasto" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        else
+                        {
+
+                            <span>Salvar</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    public class ColaboradorDto { public int Id { get; set; } public string NomeEmpresa { get; set; } = string.Empty; }
+    public class GastoDto
+    {
+        public int Id { get; set; }
+        public int ColaboradorId { get; set; }
+        public DateTime Data { get; set; }
+        public string NomeDespesa { get; set; } = string.Empty;
+        public string TipoDespesa { get; set; } = "Outras Despesas";
+        public decimal Valor { get; set; }
+        public byte[]? Anexo { get; set; }
+    }
+
+    private List<ColaboradorDto>? colaboradores;
+    private List<GastoDto>? listaGastos;
+    private GastoDto? gastoEdicao;
+    
+    private int colabSelecionadoId = 0;
+    private int mesSelecionado = DateTime.Now.Month;
+    private int anoSelecionado = DateTime.Now.Year;
+    
+    private bool isLoading = false;
+    private bool mostrarModal = false;
+    private bool isSaving = false;
+    private string modalError = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            colaboradores = await Http.GetFromJsonAsync<List<ColaboradorDto>>("api/Colaboradores");
+            if (colaboradores != null && colaboradores.Any())
+            {
+                colabSelecionadoId = colaboradores.First().Id;
+                await AtualizarGrid();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar colaboradores: {ex.Message}");
+        }
+    }
+
+    private async Task AtualizarGrid()
+    {
+        if (colabSelecionadoId == 0) return;
+        isLoading = true;
+        try
+        {
+            // Substitui a rota correspondente ao "GastoRepo.ListarAsync" da sua API
+            listaGastos = await Http.GetFromJsonAsync<List<GastoDto>>($"api/Gastos/listar?colabId={colabSelecionadoId}&mes={mesSelecionado}&ano={anoSelecionado}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao filtrar gastos: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void AbrirModal(GastoDto gasto)
+    {
+        modalError = "";
+        // Cria uma cópia rasa para edição sem alterar a tabela antes de salvar
+        gastoEdicao = new GastoDto
+        {
+            Id = gasto.Id,
+            ColaboradorId = gasto.ColaboradorId,
+            Data = gasto.Data,
+            NomeDespesa = gasto.NomeDespesa,
+            TipoDespesa = gasto.TipoDespesa,
+            Valor = gasto.Valor,
+            Anexo = gasto.Anexo
+        };
+        mostrarModal = true;
+    }
+
+    private void FecharModal()
+    {
+        mostrarModal = false;
+        gastoEdicao = null;
+    }
+
+    private async Task SalvarGasto()
+    {
+        if (gastoEdicao == null) return;
+        if (string.IsNullOrWhiteSpace(gastoEdicao.NomeDespesa))
+        {
+            modalError = "O nome da despesa é obrigatório.";
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/Gastos", gastoEdicao);
+            if (response.IsSuccessStatusCode)
+            {
+                await AtualizarGrid();
+                FecharModal();
+            }
+            else
+            {
+                modalError = "Erro ao salvar o gasto no banco.";
+            }
+        }
+        catch (Exception ex)
+        {
+            modalError = $"Erro de rede: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ExcluirGasto(int id)
+    {
+        // Simulando a confirmação
+        var response = await Http.DeleteAsync($"api/Gastos/{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            await AtualizarGrid();
+        }
+    }
+}

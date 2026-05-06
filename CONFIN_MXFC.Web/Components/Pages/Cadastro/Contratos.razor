@@ -1,0 +1,163 @@
+﻿@*
+8. IDENTIFICAÇÃO DO CÓDIGO
+======================================
+Nome do arquivo: Contratos.razor
+Substitui: CadastroContratosForm.vb / .Designer.vb
+VERSÃO: 1.0.0 (Migração Web - Gestão de Contratos por Cliente)
+=======================================
+*@
+@page "/clientes/{ClienteId:int}/contratos"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager NavManager
+
+<PageTitle>Contratos do Cliente</PageTitle>
+
+<div class="container-fluid py-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/clientes">Clientes</a></li>
+            <li class="breadcrumb-item active">Contratos</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 style="color: #104E6E; font-weight: bold; margin: 0;">Gestão de Contratos</h3>
+            @if (cliente != null)
+            {
+                <span class="text-muted fw-bold">Cliente: @cliente.RazaoSocial</span>
+            }
+        </div>
+        <button class="btn btn-primary fw-bold" @onclick="NovoContrato">
+            <i class="oi oi-plus me-1"></i> Adicionar Contrato
+        </button>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            @if (isLoading)
+            {
+                <div class="p-5 text-center text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div> Carregando contratos...
+                </div>
+            }
+            else if (contratos == null || !contratos.Any())
+            {
+                <div class="p-5 text-center text-muted">
+                    <i class="oi oi-document fs-1 d-block mb-2 text-light"></i>
+                    Nenhum contrato ativo para este cliente.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 120px;">Nº Contrato</th>
+                                <th>Objeto / Descrição</th>
+                                <th>Início</th>
+                                <th>Término</th>
+                                <th class="text-end">Valor Total</th>
+                                <th class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var contrato in contratos)
+                            {
+                                <tr>
+                                    <td class="fw-bold">@contrato.Numero</td>
+                                    <td>@contrato.Objeto</td>
+                                    <td>@contrato.DataInicio.ToShortDateString()</td>
+                                    <td>@contrato.DataTermino.ToShortDateString()</td>
+                                    <td class="text-end fw-bold">@contrato.ValorTotal.ToString("C2")</td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditarContrato(contrato.Id)">
+                                            <i class="oi oi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => ExcluirContrato(contrato.Id)">
+                                            <i class="oi oi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-group-divider">
+                            <tr>
+                                <td colspan="4" class="text-end fw-bold">VALOR GLOBAL ACUMULADO:</td>
+                                <td class="text-end fw-bold text-primary">@contratos.Sum(c => c.ValorTotal).ToString("C2")</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int ClienteId { get; set; }
+
+    public class ClienteDto { public string RazaoSocial { get; set; } = ""; }
+    public class ContratoDto
+    {
+        public int Id { get; set; }
+        public string Numero { get; set; } = "";
+        public string Objeto { get; set; } = "";
+        public DateTime DataInicio { get; set; }
+        public DateTime DataTermino { get; set; }
+        public decimal ValorTotal { get; set; }
+    }
+
+    private ClienteDto? cliente;
+    private List<ContratoDto>? contratos;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarDados();
+    }
+
+    private async Task CarregarDados()
+    {
+        isLoading = true;
+        try
+        {
+            // Busca dados do cliente para o cabeçalho
+            cliente = await Http.GetFromJsonAsync<ClienteDto>($"api/Clientes/{ClienteId}");
+            
+            // Busca a lista de contratos filtrada pelo ClienteId
+            contratos = await Http.GetFromJsonAsync<List<ContratoDto>>($"api/Contratos/cliente/{ClienteId}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar contratos: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void NovoContrato()
+    {
+        NavManager.NavigateTo($"/clientes/{ClienteId}/contratos/novo");
+    }
+
+    private void EditarContrato(int id)
+    {
+        NavManager.NavigateTo($"/clientes/{ClienteId}/contratos/editar/{id}");
+    }
+
+    private async Task ExcluirContrato(int id)
+    {
+        // Lógica de deleção via API
+        var response = await Http.DeleteAsync($"api/Contratos/{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            await CarregarDados();
+        }
+    }
+}

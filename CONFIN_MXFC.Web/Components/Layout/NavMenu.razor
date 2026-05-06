@@ -1,0 +1,212 @@
+﻿@*
+======================================
+Nome do arquivo: NavMenu.razor
+Substitui: MainForm.Designer.vb / MainForm.vb (Menus)
+VERSÃO: 14.3.1 (Correção RZ9999 - Ambiguidade de Contexto)
+DATA: 06/05/2026
+=======================================
+*@
+@inject NavigationManager NavManager
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">
+            <img src="images/mxfc-logo-branca.png" height="40" alt="MXFC Logo" />
+        </a>
+    </div>
+</div>
+
+<div class="nav-scrollable">
+    <nav class="flex-column pb-5">
+        
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="oi oi-home" aria-hidden="true"></span> Home
+            </NavLink>
+        </div>
+
+        @* Renomeado para authContext para evitar conflito com filhos *@
+        <AuthorizeView Context="authContext">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <a class="nav-link" href="javascript:void(0)" @onclick="() => ToggleSubMenu(1)">
+                        <span class="oi oi-folder" aria-hidden="true"></span> Cadastros
+                        <span class="ms-auto oi @(expandCadastro ? "oi-chevron-bottom" : "oi-chevron-right")" style="font-size: 0.8em;"></span>
+                    </a>
+                    @if (expandCadastro)
+                    {
+                        <ul class="nav flex-column ms-3">
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="clientes">
+                                    <span class="oi oi-caret-right" aria-hidden="true"></span> Clientes & Contratos
+                                </NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="cadastros/colaboradores">
+                                    <span class="oi oi-caret-right" aria-hidden="true"></span> Colaboradores (PJ)
+                                </NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <NavLink class="nav-link text-muted" href="em-desenvolvimento" title="Em desenvolvimento">
+                                    <span class="oi oi-wrench" aria-hidden="true"></span> Fornecedores
+                                </NavLink>
+                            </li>
+                        </ul>
+                    }
+                </div>
+
+                <div class="nav-item px-3">
+                    <a class="nav-link" href="javascript:void(0)" @onclick="() => ToggleSubMenu(2)">
+                        <span class="oi oi-cart" aria-hidden="true"></span> Lançamentos
+                        <span class="ms-auto oi @(expandLancamento ? "oi-chevron-bottom" : "oi-chevron-right")" style="font-size: 1.0em;"></span>
+                    </a>
+                    @if (expandLancamento)
+                    {
+                        <ul class="nav flex-column ms-3">
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="lancamentos/gastos">
+                                    <span class="oi oi-caret-right" aria-hidden="true"></span> Despesas / Gastos
+                                </NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="lancamentos/resumo-notas">
+                                    <span class="oi oi-caret-right" aria-hidden="true"></span> Resumo de Notas (NF)
+                                </NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <NavLink class="nav-link text-muted" href="em-desenvolvimento" title="Em desenvolvimento">
+                                    <span class="oi oi-wrench" aria-hidden="true"></span> Medição / Planejamento
+                                </NavLink>
+                            </li>
+                        </ul>
+                    }
+                </div>
+
+                <div class="nav-item px-3">
+                    <a class="nav-link" href="javascript:void(0)" @onclick="() => ToggleSubMenu(3)">
+                        <span class="oi oi-bar-chart" aria-hidden="true"></span> Relatórios
+                        <span class="ms-auto oi @(expandRelatorio ? "oi-chevron-bottom" : "oi-chevron-right")" style="font-size: 0.7em;"></span>
+                    </a>
+                    @if (expandRelatorio)
+                    {
+                        <ul class="nav flex-column ms-3">
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="relatorios/colaboradores">
+                                    <span class="oi oi-caret-right" aria-hidden="true"></span> Resumo Colaboradores
+                                </NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <NavLink class="nav-link text-muted" href="em-desenvolvimento" title="Em desenvolvimento">
+                                    <span class="oi oi-wrench" aria-hidden="true"></span> Relatórios de Clientes
+                                </NavLink>
+                            </li>
+                        </ul>
+                    }
+                </div>
+
+                <div class="nav-item px-3">
+                    <a class="nav-link" href="javascript:void(0)" @onclick="() => ToggleSubMenu(4)">
+                        <span class="oi oi-briefcase" aria-hidden="true"></span> Recursos Humanos
+                        <span class="ms-auto oi @(expandRh ? "oi-chevron-bottom" : "oi-chevron-right")" style="font-size: 0.7em;"></span>
+                    </a>
+                    @if (expandRh)
+                    {
+                        <ul class="nav flex-column ms-3">
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="rh/funcionarios">
+                                    <span class="oi oi-caret-right" aria-hidden="true"></span> Fichas Cadastrais (PF)
+                                </NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <NavLink class="nav-link text-muted" href="em-desenvolvimento" title="Em desenvolvimento">
+                                    <span class="oi oi-wrench" aria-hidden="true"></span> Controle de Férias
+                                </NavLink>
+                            </li>
+                        </ul>
+                    }
+                </div>
+
+                <div class="nav-item px-3">
+                    <a class="nav-link" href="javascript:void(0)" @onclick="() => ToggleSubMenu(5)">
+                        <span class="oi oi-shield" aria-hidden="true"></span> Compliance
+                        <span class="ms-auto oi @(expandCompliance ? "oi-chevron-bottom" : "oi-chevron-right")" style="font-size: 0.7em;"></span>
+                    </a>
+                    @if (expandCompliance)
+                    {
+                        <ul class="nav flex-column ms-3">
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="compliance/emitir">
+                                    <span class="oi oi-caret-right" aria-hidden="true"></span> Emitir PDF (Termo)
+                                </NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="compliance/importar">
+                                    <span class="oi oi-caret-right" aria-hidden="true"></span> Importar PDF Assinado
+                                </NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/resources/COMPLIANCE_MXFC_revisada.pdf" target="_blank">
+                                    <span class="oi oi-book" aria-hidden="true"></span> Manual MXFC
+                                </a>
+                            </li>
+                        </ul>
+                    }
+                </div>
+
+                <hr class="border-secondary mx-3 my-3" />
+
+                @* Uso de Context especializado para evitar conflito *@
+                <AuthorizeView Roles="PROGRAMADOR, ADMIN" Context="adminContext">
+                    <Authorized>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link text-warning fw-bold" href="admin/usuarios">
+                                <span class="oi oi-people" aria-hidden="true"></span> Gestão de Usuários
+                            </NavLink>
+                        </div>
+                    </Authorized>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="PROGRAMADOR" Context="devContext">
+                    <Authorized>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link text-danger fw-bold" href="admin/dbtools">
+                                <span class="oi oi-cog" aria-hidden="true"></span> MXFC Engenharia (DB)
+                            </NavLink>
+                        </div>
+                    </Authorized>
+                </AuthorizeView>
+            </Authorized>
+            
+            <NotAuthorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link text-info fw-bold" href="login">
+                        <span class="oi oi-account-login" aria-hidden="true"></span> Acessar Sistema
+                    </NavLink>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    </nav>
+</div>
+
+@code {
+    private bool expandCadastro = false;
+    private bool expandLancamento = false;
+    private bool expandRelatorio = false;
+    private bool expandRh = false;
+    private bool expandCompliance = false;
+
+    private void ToggleSubMenu(int menuId)
+    {
+        if (menuId == 1) expandCadastro = !expandCadastro;
+        if (menuId == 2) expandLancamento = !expandLancamento;
+        if (menuId == 3) expandRelatorio = !expandRelatorio;
+        if (menuId == 4) expandRh = !expandRh;
+        if (menuId == 5) expandCompliance = !expandCompliance;
+
+        if (menuId != 1) expandCadastro = false;
+        if (menuId != 2) expandLancamento = false;
+        if (menuId != 3) expandRelatorio = false;
+        if (menuId != 4) expandRh = false;
+        if (menuId != 5) expandCompliance = false;
+    }
+}

@@ -1,0 +1,110 @@
+﻿@*
+======================================
+Nome do arquivo: Login.razor
+VERSÃO: 14.6.0 (Correção RZ1017 e RZ9980)
+MXFC Engenharia Ltda.
+=======================================
+*@
+@page "/login"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Net.Http.Json
+@attribute [AllowAnonymous]
+
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@rendermode InteractiveServer
+@inject HttpClient Http
+@inject NavigationManager NavManager
+@inject global::CONFIN_MXFC.Web.Security.CustomAuthStateProvider AuthProvider
+
+<div class="container d-flex align-items-center justify-content-center vh-100">
+    <div class="card p-4 shadow-sm border-0" style="width: 400px; border-radius: 12px;">
+        <div class="text-center mb-4">
+            <h3 style="color: #104E6E; font-weight: bold;">CONFIN_MXFC</h3>
+            <p class="text-muted small fw-bold">IDENTIFICAÇÃO DE ACESSO</p>
+        </div>
+
+        <EditForm Model="@loginModel" OnValidSubmit="ExecutarLogin">
+            <div class="mb-3">
+                <label class="form-label fw-bold small text-muted">USUÁRIO</label>
+                <InputText @bind-Value="loginModel.Usuario" class="form-control form-control-lg" placeholder="Digite seu login" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold small text-muted">SENHA</label>
+                <InputText @bind-Value="loginModel.Senha" type="password" class="form-control form-control-lg" placeholder="••••••••" />
+            </div>
+            <button type="submit" class="btn btn-primary w-100 fw-bold py-2 mt-3" disabled="@isProcessing" style="background-color: #104E6E;">
+                @if (isProcessing)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                ENTRAR
+            </button>
+        </EditForm>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger mt-3 py-2 text-center small border-0 shadow-sm">
+                <i class="oi oi-warning me-1"></i> @errorMessage
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginModel = new();
+    private bool isProcessing = false;
+    private string errorMessage = "";
+
+    private async Task ExecutarLogin()
+    {
+        isProcessing = true;
+        errorMessage = "";
+        try
+        {
+            // 1. Validação no Backend (Porta 5000)
+            var response = await Http.PostAsJsonAsync("http://localhost:5000/api/auth/login", loginModel);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
+                if (result != null && !string.IsNullOrEmpty(result.Token))
+                {
+                    // 2. Persistência de Cookie no Frontend (Porta 7297)
+                    var localResponse = await Http.PostAsJsonAsync("/auth/local-login", result.Token);
+                    
+                    if (localResponse.IsSuccessStatusCode)
+                    {
+                        await AuthProvider.MarcarUsuarioComoAutenticado(result.Token);
+                        NavManager.NavigateTo("/", forceLoad: true);
+                    }
+                }
+            }
+            else
+            {
+                errorMessage = "Credenciais inválidas. Tente novamente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Falha de comunicação com o servidor.";
+            Console.WriteLine(ex.Message);
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    // Classes de modelo isoladas no final do bloco @code
+    public class LoginRequest
+    {
+        public string Usuario { get; set; } = string.Empty;
+        public string Senha { get; set; } = string.Empty;
+    }
+
+    public class LoginResponse
+    {
+        public string Token { get; set; } = string.Empty;
+    }
+}

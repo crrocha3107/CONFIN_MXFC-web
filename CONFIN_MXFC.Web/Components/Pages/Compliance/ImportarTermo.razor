@@ -1,0 +1,214 @@
+﻿@*
+8. IDENTIFICAÇÃO DO CÓDIGO
+======================================
+Nome do arquivo: ImportarTermo.razor
+Substitui: ImportarDeclaracaoForm.vb / .Designer.vb
+VERSÃO: 1.0.2 (Correção do Circuito Blazor e InputFile)
+=======================================
+*@
+@page "/compliance/importar"
+@using System.Net.Http.Json
+@using System.Net.Http.Headers
+@using Microsoft.JSInterop
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Importar Declaração Assinada</PageTitle>
+
+<div class="container-fluid py-3" style="max-width: 700px; margin: 0 auto;">
+    <div class="card shadow-sm border-0 mt-4">
+        <div class="card-header bg-white pt-4 pb-2 border-0">
+            <h4 style="color: #104E6E; font-weight: bold;">
+                <i class="oi oi-cloud-upload me-2"></i> Importar Termo Assinado
+            </h4>
+            <p class="text-muted mb-0">Arquive o PDF assinado diretamente no banco de dados (Max: 10MB).</p>
+        </div>
+        <div class="card-body p-4">
+            
+            @if (isLoading)
+            {
+                <div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm"></div></div>
+            }
+            else
+            {
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Selecione o Colaborador:</label>
+                    <select class="form-select" @bind="funcSelecionadoReg">
+                        @if (funcionarios != null)
+                        {
+                            foreach (var f in funcionarios)
+                            {
+                                <option value="@f.REG">@f.NomeCompleto</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <!-- BLOCO CORRIGIDO: InputFile Transparente sobreposto ao CSS do Botão -->
+                <div class="mb-4 p-4 bg-light border rounded text-center">
+                    <label class="form-label fw-bold d-block mb-3">Selecione o Arquivo (Apenas PDF):</label>
+                    
+                    <div class="position-relative overflow-hidden btn btn-outline-primary btn-lg fw-bold shadow-sm d-inline-block">
+                        <i class="oi oi-folder me-2"></i> Localizar Arquivo PDF...
+                        <InputFile OnChange="CarregarArquivo" accept=".pdf"
+                                   style="position: absolute; top: 0; right: 0; min-width: 100%; min-height: 100%; opacity: 0; cursor: pointer;" />
+                    </div>
+                    
+                    @if (arquivoSelecionado != null)
+                    {
+                        <div class="mt-3 text-success fw-bold" style="font-size: 0.95rem;">
+                            <i class="oi oi-check"></i> Arquivo carregado na memória: <br />
+                            <span class="text-dark">@arquivoSelecionado.Name (@(arquivoSelecionado.Size / 1024) KB)</span>
+                        </div>
+                    }
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success flex-grow-1 fw-bold" @onclick="SalvarNoBanco" disabled="@(isUploading || arquivoSelecionado == null)">
+                        @if (isUploading)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        else
+                        {
+
+                            <span><i class="oi oi-data-transfer-upload me-1"></i> Salvar no Banco</span>
+                        }
+                    </button>
+                    
+                    <button class="btn btn-outline-info fw-bold" @onclick="VerAtual" title="Ver declaração salva no banco">
+                        <i class="oi oi-eye me-1"></i> Ver Atual
+                    </button>
+                </div>
+                
+                @if (!string.IsNullOrEmpty(statusMessage))
+                {
+                    <div class="alert alert-@statusType mt-3 py-2">@statusMessage</div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    public class FuncionarioDto { public int REG { get; set; } public string NomeCompleto { get; set; } = string.Empty; }
+
+    private List<FuncionarioDto>? funcionarios;
+    private int funcSelecionadoReg = 0;
+    
+    private IBrowserFile? arquivoSelecionado;
+    private const long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    
+    private bool isLoading = true;
+    private bool isUploading = false;
+    private string statusMessage = "";
+    private string statusType = "info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            funcionarios = await Http.GetFromJsonAsync<List<FuncionarioDto>>("api/Funcionarios/ativos");
+            if (funcionarios != null && funcionarios.Any()) funcSelecionadoReg = funcionarios.First().REG;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void CarregarArquivo(InputFileChangeEventArgs e)
+    {
+        statusMessage = "";
+        var file = e.File;
+        
+        if (file.Size > MAX_FILE_SIZE)
+        {
+            statusMessage = "Erro: O arquivo excede o limite de 10MB.";
+            statusType = "danger";
+            arquivoSelecionado = null;
+            return;
+        }
+        
+        if (!file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            statusMessage = "Aviso: Selecione apenas arquivos em formato PDF.";
+            statusType = "warning";
+            arquivoSelecionado = null;
+            return;
+        }
+
+        arquivoSelecionado = file;
+    }
+
+    private async Task SalvarNoBanco()
+    {
+        if (arquivoSelecionado == null || funcSelecionadoReg == 0) return;
+        
+        isUploading = true;
+        statusMessage = "Enviando arquivo para o servidor...";
+        statusType = "info";
+
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var fileContent = new StreamContent(arquivoSelecionado.OpenReadStream(MAX_FILE_SIZE));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(arquivoSelecionado.ContentType);
+            
+            content.Add(content: fileContent, name: "\"file\"", fileName: arquivoSelecionado.Name);
+
+            var response = await Http.PutAsync($"api/Compliance/importar-termo/{funcSelecionadoReg}", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                statusMessage = "Declaração gravada no banco de dados com sucesso!";
+                statusType = "success";
+                arquivoSelecionado = null;
+            }
+            else
+            {
+                statusMessage = "Falha ao gravar no servidor.";
+                statusType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Erro: {ex.Message}";
+            statusType = "danger";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private async Task VerAtual()
+    {
+        if (funcSelecionadoReg == 0) return;
+        statusMessage = "Buscando documento...";
+        statusType = "info";
+
+        try
+        {
+            var response = await Http.GetAsync($"api/Compliance/ver-termo/{funcSelecionadoReg}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                statusMessage = "";
+                var fileStream = await response.Content.ReadAsStreamAsync();
+                using var streamRef = new DotNetStreamReference(stream: fileStream);
+                await JS.InvokeVoidAsync("downloadFileFromStream", $"Declaracao_{funcSelecionadoReg}.pdf", streamRef);
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                statusMessage = "Este funcionário não possui declaração digitalizada no banco.";
+                statusType = "warning";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Erro: {ex.Message}";
+            statusType = "danger";
+        }
+    }
+}

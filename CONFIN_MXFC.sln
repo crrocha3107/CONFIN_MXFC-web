@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.5.11723.231
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "CONFIN_MXFC", "CONFIN_MXFC-vb\CONFIN_MXFC.vbproj", "{D08D5579-B515-E30B-5DB3-41BAB3977613}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CONFIN_MXFC.Web", "CONFIN_MXFC.Web\CONFIN_MXFC.Web.csproj", "{637F9973-D65B-F805-B711-649ED9EA0047}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|ARM64 = Debug|ARM64
+		Release|Any CPU = Release|Any CPU
+		Release|ARM64 = Release|ARM64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D08D5579-B515-E30B-5DB3-41BAB3977613}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D08D5579-B515-E30B-5DB3-41BAB3977613}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D08D5579-B515-E30B-5DB3-41BAB3977613}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{D08D5579-B515-E30B-5DB3-41BAB3977613}.Debug|ARM64.Build.0 = Debug|ARM64
+		{D08D5579-B515-E30B-5DB3-41BAB3977613}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D08D5579-B515-E30B-5DB3-41BAB3977613}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D08D5579-B515-E30B-5DB3-41BAB3977613}.Release|ARM64.ActiveCfg = Release|ARM64
+		{D08D5579-B515-E30B-5DB3-41BAB3977613}.Release|ARM64.Build.0 = Release|ARM64
+		{637F9973-D65B-F805-B711-649ED9EA0047}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{637F9973-D65B-F805-B711-649ED9EA0047}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{637F9973-D65B-F805-B711-649ED9EA0047}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{637F9973-D65B-F805-B711-649ED9EA0047}.Debug|ARM64.Build.0 = Debug|ARM64
+		{637F9973-D65B-F805-B711-649ED9EA0047}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{637F9973-D65B-F805-B711-649ED9EA0047}.Release|Any CPU.Build.0 = Release|Any CPU
+		{637F9973-D65B-F805-B711-649ED9EA0047}.Release|ARM64.ActiveCfg = Release|ARM64
+		{637F9973-D65B-F805-B711-649ED9EA0047}.Release|ARM64.Build.0 = Release|ARM64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8132CCA0-E61A-4957-B54E-3BDA2CB53E9C}
+	EndGlobalSection
+EndGlobal

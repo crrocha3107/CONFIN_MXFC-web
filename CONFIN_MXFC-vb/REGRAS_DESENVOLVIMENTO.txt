@@ -1,0 +1,64 @@
+===========================================================================
+PROJETO: CONFIN_MXFC (Financeiro & RH)
+DOCUMENTO DE REGRAS IMUTÁVEIS E ARQUITETURA
+ÚLTIMA ATUALIZAÇÃO: Versão 5.5.0
+===========================================================================
+
+1. BANCO DE DADOS (SQLite)
+   - Nome do Arquivo: "MXFC_CONFIN-V1.db"
+   - Localização: Pasta "Meus Documentos\CONFIN_MXFC_Data\" (Environment.SpecialFolder.MyDocuments).
+   - Controle de Versão: O arquivo 'Migrations.vb' controla a estrutura. NUNCA alterar a estrutura manualmente; incrementar 'CURRENT_DB_VERSION' e criar um novo 'Case'.
+   - Acesso a Dados: 
+     * OBRIGATÓRIO: Ler colunas SEMPRE pelo NOME (ex: rd("NomeColuna")) e NUNCA pelo índice numérico (ex: rd(0)), para evitar erros se a ordem das colunas mudar.
+     * Tratamento de Nulos: Usar sempre verificação 'IsDBNull' ou funções seguras (SafeGetDate, GetStr) criadas no Repositorio.
+
+2. ENTIDADES E CHAVES PRIMÁRIAS
+   - Tabela 'Funcionario' (PF): 
+     * Chave Primária: "REG" (Integer). NÃO USAR "Id".
+     * O campo REG é a referência para vínculos.
+   - Tabela 'Colaborador' (PJ):
+     * Chave Primária: "Id" (Integer).
+     * Chave Estrangeira: "FuncionarioREG" (Link para Funcionario.REG).
+     * Regra de Exclusão: ON DELETE CASCADE (Ao apagar o Funcionario, apaga o Colaborador e os Gastos).
+
+3. SEGURANÇA E ACESSOS
+   - Tabela: 'Usuario'.
+   - Níveis de Acesso (Role):
+     1. "PROGRAMADOR" (Acesso Total + Botão DB Tools para backup/restauro).
+     2. "ADMIN" (Acesso Total + Menu Gestão de Usuários).
+     3. "USUARIO" (Acesso Operacional apenas).
+   - Senha: Hash SHA256 com Salt.
+   - Usuário Padrão: admin / admin (Criação automática se não existir).
+
+4. IMPORTAÇÃO DE EXCEL (Ficha Cadastral)
+   - Biblioteca: ExcelDataReader (para suportar .xls, .xlsx, .xlsm).
+   - Mapeamento: É FIXO e baseia-se em coordenadas de células (ex: "D8", "Q9").
+   - Não alterar a lógica de 'ParseAddress' ou 'GetVal' no 'ExcelService.vb'.
+   - Telefones: Devem ser concatenados (Fixo: D15+E15; Celular: G15+H15+I15).
+
+5. INTERFACE (WinForms)
+   - Edição de Funcionário: O layout dos campos é gerado via código (RefazerLayoutVisual) no construtor para garantir alinhamento e evitar bugs do Designer do VS.
+   - Cálculo de Nota: O período deve permitir selecionar existente OU digitar um novo (Mês/Ano).
+
+6. DIRETÓRIOS
+   - Anexos de Gastos: Salvos na subpasta "\Anexos" dentro do diretório do banco de dados.
+   - Os arquivos não são salvos dentro do banco (BLOB), apenas o caminho (Path) é salvo.
+
+7. NUMERO DE REGISTRO DOS FUNCIONARIOS
+   - Criar dois checkBox para dar flexibilidade ao sistema, permitindo escolher entre o "Modo Sequencial Padrão" (seguro, histórico preservado) e o "Modo Preencher Buracos" (numeração compacta, reutiliza IDs).
+
+8. IDENTIFICAÇÃO DO CÓDIGO
+'======================================
+' Nome do arquivo.vb
+' VERSÃO: x.x.x (by Rocha - MXFC Engenharia Ltda)
+' DATA: dia/mês/ano
+'=======================================
+
+9. REPOSITORIO.VB
+   - Repositorios.vb limpo, completo e autónomo, sem heranças e com todas as funções escritas por extenso.
+   - Removida qualquer referência a Inherits.
+   - Corrigida a sintaxe dos blocos Try...Catch.
+   - Incluídas todas as funções (Listar, Salvar, Excluir, Inativar, AtualizarSituacao) explicitamente em cada classe.
+
+
+===========================================================================

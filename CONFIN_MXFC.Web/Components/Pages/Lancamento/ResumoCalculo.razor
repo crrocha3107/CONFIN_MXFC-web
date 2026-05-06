@@ -1,0 +1,211 @@
+﻿@*
+8. IDENTIFICAÇÃO DO CÓDIGO
+======================================
+Nome do arquivo: ResumoCalculo.razor
+Substitui: ResumoCalculoForm.vb / .Designer.vb
+VERSÃO: 1.0.0 (Migração Web - Resumo de Notas Fiscais)
+DATA: 06/05/2026
+=======================================
+*@
+@page "/lancamentos/resumo-notas"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager NavManager
+
+<PageTitle>Resumo de Notas Fiscais</PageTitle>
+
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 style="color: #104E6E; font-weight: bold; margin: 0;">Resumo de Notas Fiscais</h3>
+        <button class="btn btn-success fw-bold" @onclick="AbrirCalculoNota">
+            <i class="oi oi-calculator me-1"></i> Lançar / Editar Nota
+        </button>
+    </div>
+
+    <!-- Barra de Filtros -->
+    <div class="card shadow-sm border-0 mb-4 bg-light">
+        <div class="card-body py-3">
+            <div class="row g-3 align-items-end">
+                
+                <!-- Filtro de Período -->
+                <div class="col-md-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <label class="form-label fw-bold m-0">Período</label>
+                        <div class="form-check form-switch m-0">
+                            <input class="form-check-input" type="checkbox" id="chkTodosPeriodos" @bind="mostrarTodosPeriodos" @bind:after="AtualizarGrid">
+                            <label class="form-check-label text-muted" style="font-size: 0.85rem;" for="chkTodosPeriodos">Todos</label>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <select class="form-select" @bind="mesSelecionado" @bind:after="AtualizarGrid" disabled="@mostrarTodosPeriodos">
+                            @for (int i = 1; i <= 12; i++)
+                            {
+                                <option value="@i">@i.ToString("00")</option>
+                            }
+                        </select>
+                        <select class="form-select" @bind="anoSelecionado" @bind:after="AtualizarGrid" disabled="@mostrarTodosPeriodos">
+                            @for (int i = DateTime.Now.Year - 2; i <= DateTime.Now.Year + 1; i++)
+                            {
+                                <option value="@i">@i</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Filtro de Colaborador -->
+                <div class="col-md-5">
+                    <div class="d-flex justify-content-between mb-1">
+                        <label class="form-label fw-bold m-0">Colaborador (PJ)</label>
+                        <div class="form-check form-switch m-0">
+                            <input class="form-check-input" type="checkbox" id="chkTodosColab" @bind="mostrarTodosColaboradores" @bind:after="AtualizarGrid">
+                            <label class="form-check-label text-muted" style="font-size: 0.85rem;" for="chkTodosColab">Mostrar Todos</label>
+                        </div>
+                    </div>
+                    <select class="form-select" @bind="colabSelecionadoId" @bind:after="AtualizarGrid" disabled="@mostrarTodosColaboradores">
+                        @if (colaboradores != null)
+                        {
+                            foreach (var c in colaboradores)
+                            {
+                                <option value="@c.Id">@c.NomeEmpresa</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-outline-primary" @onclick="AtualizarGrid">
+                        <i class="oi oi-loop-circular"></i> Atualizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Resultados -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            @if (isLoading)
+            {
+                <div class="p-5 text-center text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div> Buscando lançamentos...
+                </div>
+            }
+            else if (listaResumo == null || !listaResumo.Any())
+            {
+                <div class="p-5 text-center text-muted">
+                    <i class="oi oi-inbox fs-1 d-block mb-2 text-light"></i>
+                    Nenhum lançamento de nota fiscal encontrado para os filtros selecionados.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 100px;">Período</th>
+                                <th>Colaborador</th>
+                                <th>Observação</th>
+                                <th class="text-end" style="width: 150px;">Valor da NF</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in listaResumo)
+                            {
+                                <tr>
+                                    <td><span class="badge bg-secondary">@item.Periodo</span></td>
+                                    <td class="fw-bold" style="color: #104E6E;">@item.Colaborador</td>
+                                    <td class="text-muted text-truncate" style="max-width: 300px;" title="@item.Observacao">
+                                        @(string.IsNullOrWhiteSpace(item.Observacao) ? "-" : item.Observacao)
+                                    </td>
+                                    <td class="text-end text-success fw-bold fs-6">@item.ValorNotaFiscal.ToString("C2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-group-divider">
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold">TOTAL GERAL:</td>
+                                <td class="text-end fw-bold fs-5 text-success">@listaResumo.Sum(x => x.ValorNotaFiscal).ToString("C2")</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    public class ColaboradorDto { public int Id { get; set; } public string NomeEmpresa { get; set; } = string.Empty; }
+    
+    // Objeto anônimo do VB.NET traduzido para DTO C# explícito para a View
+    public class ResumoNotaDto
+    {
+        public string Colaborador { get; set; } = string.Empty;
+        public string Periodo { get; set; } = string.Empty;
+        public decimal ValorNotaFiscal { get; set; }
+        public string Observacao { get; set; } = string.Empty;
+    }
+
+    private List<ColaboradorDto>? colaboradores;
+    private List<ResumoNotaDto>? listaResumo;
+    
+    private int colabSelecionadoId = 0;
+    private int mesSelecionado = DateTime.Now.Month;
+    private int anoSelecionado = DateTime.Now.Year;
+    
+    // Estado inicial dos filtros (Idêntico ao Load do Form original)
+    private bool mostrarTodosColaboradores = true;
+    private bool mostrarTodosPeriodos = false;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            colaboradores = await Http.GetFromJsonAsync<List<ColaboradorDto>>("api/Colaboradores");
+            if (colaboradores != null && colaboradores.Any())
+            {
+                colabSelecionadoId = colaboradores.First().Id;
+            }
+            await AtualizarGrid();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro na inicialização: {ex.Message}");
+            isLoading = false;
+        }
+    }
+
+    private async Task AtualizarGrid()
+    {
+        isLoading = true;
+        try
+        {
+            // Constrói os parâmetros da query string para a API baseados nos switches
+            var queryColab = mostrarTodosColaboradores ? "0" : colabSelecionadoId.ToString();
+            var queryMes = mostrarTodosPeriodos ? "0" : mesSelecionado.ToString();
+            var queryAno = mostrarTodosPeriodos ? "0" : anoSelecionado.ToString();
+
+            // Rota sugerida no backend: api/NotasFiscais/resumo?colabId=X&mes=Y&ano=Z
+            // (Onde "0" indica "Todos")
+            listaResumo = await Http.GetFromJsonAsync<List<ResumoNotaDto>>(
+                $"api/NotasFiscais/resumo?colabId={queryColab}&mes={queryMes}&ano={queryAno}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar resumo: {ex.Message}");
+            listaResumo = new List<ResumoNotaDto>();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void AbrirCalculoNota()
+    {
+        // Navega para a tela desenvolvida no passo anterior
+        NavManager.NavigateTo("/lancamentos/calculo-nota");
+    }
+}

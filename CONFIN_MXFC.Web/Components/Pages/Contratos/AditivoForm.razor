@@ -1,0 +1,254 @@
+﻿@*
+8. IDENTIFICAÇÃO DO CÓDIGO
+======================================
+AditivoForm.razor (Substitui EditAditivoDialog.vb)
+VERSÃO: 1.0.0 (Migração Web)
+=======================================
+*@
+@page "/contratos/aditivo/editar/{ContratoId:int}/{AditivoId:int}"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager NavManager
+
+<PageTitle>@(AditivoId == 0 ? "Novo Aditivo" : "Editar Aditivo")</PageTitle>
+
+<div class="container-fluid py-3" style="max-width: 800px; margin: 0 auto;">
+    
+    <div class="d-flex align-items-center mb-4">
+        <button class="btn btn-outline-secondary me-3" @onclick="Voltar">
+            <i class="oi oi-arrow-left"></i> Voltar
+        </button>
+        <h3 style="color: #104E6E; font-weight: bold; margin: 0;">
+            @(AditivoId == 0 ? "Novo Aditivo de Contrato" : "Detalhes do Aditivo")
+        </h3>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5 text-muted">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            Carregando dados do aditivo...
+        </div>
+    }
+    else if (aditivoModel != null)
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                
+                @if (!string.IsNullOrEmpty(statusMessage))
+                {
+                    <div class="alert alert-@statusType py-2">@statusMessage</div>
+                }
+
+                <div class="row g-3">
+                    
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Nº Aditivo</label>
+                        <input type="text" class="form-control" @bind="aditivoModel.Numero" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Data do Aditivo</label>
+                        <input type="date" class="form-control" @bind="aditivoModel.Data" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Novo Prazo (Data Final)</label>
+                        <input type="date" class="form-control" @bind="aditivoModel.DataFinal" />
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label fw-bold">Valor (R$)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">R$</span>
+                            <input type="number" step="0.01" class="form-control" @bind="aditivoModel.Valor" />
+                        </div>
+                        <div class="form-text text-muted fst-italic">Use valor negativo para supressões.</div>
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label fw-bold">Descrição</label>
+                        <textarea class="form-control" rows="3" @bind="aditivoModel.Descricao"></textarea>
+                    </div>
+                </div>
+
+                <hr class="mt-4 mb-3" />
+
+                <!-- Interface de Upload de Anexo Temporária -->
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label class="form-label fw-bold">Cópia Digitalizada</label>
+                        <div class="d-flex align-items-center">
+                            @if (aditivoModel.TemAnexo)
+                            {
+                                <div class="text-success fw-bold me-3">
+                                    <i class="oi oi-check"></i> Arquivo anexado.
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="RemoverAnexo">
+                                    Remover Anexo
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="text-muted fst-italic me-3">
+                                    Nenhum arquivo anexado.
+                                </div>
+                                <!-- O upload real de binários no Blazor usará <InputFile> futuramente -->
+                                <button class="btn btn-sm btn-outline-secondary" disabled title="Upload em construção">
+                                    <i class="oi oi-paperclip"></i> Anexar Documento
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end mt-4">
+                    <button class="btn btn-secondary me-2" @onclick="Voltar">Cancelar</button>
+                    <button class="btn btn-success px-4" @onclick="SalvarAditivo" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>Salvando...</span>
+                        }
+                        else
+                        {
+                            <i class="oi oi-check me-1"></i> <span>Salvar Aditivo</span>
+                        }
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int ContratoId { get; set; }
+    
+    [Parameter]
+    public int AditivoId { get; set; }
+
+    public class ContratoAditivoDto
+    {
+        public int Id { get; set; }
+        public int ContratoId { get; set; }
+        public string Numero { get; set; } = string.Empty;
+        public DateTime Data { get; set; }
+        public DateTime DataFinal { get; set; }
+        public decimal Valor { get; set; }
+        public string Descricao { get; set; } = string.Empty;
+        public bool TemAnexo { get; set; }
+        public byte[]? Anexo { get; set; }
+    }
+
+    private ContratoAditivoDto? aditivoModel;
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string statusMessage = "";
+    private string statusType = "info";
+
+    private string Data
+    {
+        get => aditivoModel?.Data.ToString("yyyy-MM-dd") ?? "";
+        set { if (aditivoModel != null && DateTime.TryParse(value, out var d)) aditivoModel.Data = d; }
+    }
+
+    private string DataFinal
+    {
+        get => aditivoModel?.DataFinal.ToString("yyyy-MM-dd") ?? "";
+        set { if (aditivoModel != null && DateTime.TryParse(value, out var d)) aditivoModel.DataFinal = d; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (AditivoId == 0)
+            {
+                // Inicia um novo Aditivo com base no Contrato
+                aditivoModel = new ContratoAditivoDto
+                {
+                    ContratoId = ContratoId,
+                    Data = DateTime.Today,
+                    DataFinal = DateTime.Today.AddYears(1) // Pode ser ajustado se buscar o prazo do contrato pai
+                };
+            }
+            else
+            {
+                // Busca a lista de aditivos do contrato e filtra o ID
+                var lista = await Http.GetFromJsonAsync<List<ContratoAditivoDto>>($"api/ContratoAditivos/contrato/{ContratoId}");
+                if (lista != null)
+                {
+                    aditivoModel = lista.FirstOrDefault(a => a.Id == AditivoId);
+                }
+                
+                if (aditivoModel == null)
+                {
+                    statusMessage = "Aditivo não encontrado.";
+                    statusType = "danger";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Erro de conexão: {ex.Message}";
+            statusType = "danger";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void RemoverAnexo()
+    {
+        if (aditivoModel != null)
+        {
+            aditivoModel.Anexo = null;
+            aditivoModel.TemAnexo = false;
+        }
+    }
+
+    private async Task SalvarAditivo()
+    {
+        if (aditivoModel == null) return;
+
+        isSaving = true;
+        statusMessage = "Salvando aditivo...";
+        statusType = "info";
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/ContratoAditivos", aditivoModel);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                // Após salvar o aditivo, volta para o dashboard ou listagem de aditivos daquele contrato.
+                // Como não temos a tela de lista de aditivos criada ainda, voltaremos para os contratos.
+                Voltar();
+            }
+            else
+            {
+                statusMessage = "Erro ao salvar no banco de dados.";
+                statusType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Falha de rede: {ex.Message}";
+            statusType = "danger";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void Voltar()
+    {
+        // Neste fluxo simplificado, vamos retornar à lista de contratos
+        // (A rota real pode ser ajustada dependendo de como a gestão do cliente pai for construída)
+        NavManager.NavigateTo($"/clientes");
+    }
+}
